@@ -133,6 +133,19 @@ def clean_online_class_location(df):
     )
 
 
+def create_max_hour_per_trainer(df):
+    et_7_h = [
+        "Gereau Jason Jarett",
+    ]
+    condlist = [
+        df.index.get_level_values("teacher").isin(et_7_h),
+        df.index.get_level_values("teacher_position_y") == "Coach",
+        df.index.get_level_values("teacher_position_y") == "ET",
+    ]
+    choicelist = [7, 5, 6]
+    return np.select(condlist, choicelist, default=np.nan)
+
+
 def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
     """Change the value of bottom right diagonal with nan.
 
