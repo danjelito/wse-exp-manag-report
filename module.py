@@ -169,6 +169,37 @@ def create_com_class_type(df, column):
     return result
 
 
+def get_days_after_first_transaction(trans_date_ser, first_pur_ser):
+    return pd.cut(
+        (pd.to_datetime(trans_date_ser) - pd.to_datetime(first_pur_ser)).dt.days,
+        bins=list(range(0, 390, 30)),
+        include_lowest=True,
+    )
+
+
+def ffill_1d_arr(arr):
+    arr_copy = arr.copy()
+    arr_shape = arr_copy.shape
+    last_seen = None
+    for i in range(arr_shape[0]):
+        current_val = arr_copy[i]
+        if not np.isnan(current_val):
+            last_seen = current_val
+        elif np.isnan(current_val):
+            arr_copy[i] = last_seen
+    return arr_copy
+
+
+def get_customer_first_month(flag_series, fill_series):
+    result = np.where(
+        flag_series.astype(str) == "(-0.001, 30.0]",
+        fill_series,
+        np.nan,
+    )
+
+    return ffill_1d_arr(result)
+
+
 def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
     """Change the value of bottom right diagonal with nan.
 
@@ -190,50 +221,7 @@ def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def check_cohort(raw_df: pd.DataFrame, cohort_df: pd.DataFrame) -> bool:
-    """Check the result of funcion make_cohort with manual calculation
-    for the first three months.
-
-    Args:
-        raw_df (pd.DataFrame): Input DF to make_cohort with two columns; ["transaction_date", "customer_id"].
-        cohort_df (pd.DataFrame): Resulting DF of make_cohort.
-
-    Returns:
-        bool: True if the resulting DF of make_cohort correspond with manual calculation.
-    """
-
-    first_trans = raw_df["transaction_date"].min()
-    first_month = first_trans - pd.offsets.MonthBegin(-1)  # month after the first trans
-    second_month = first_trans - pd.offsets.MonthBegin(-2)
-    third_month = first_trans - pd.offsets.MonthBegin(-3)
-
-    # all customer in month 0
-    month_zero_cust = raw_df.loc[
-        (raw_df["transaction_date"].dt.month == first_trans.month)
-        & (raw_df["transaction_date"].dt.year == first_trans.year),
-        "customer_id",
-    ].unique()
-
-    result = []
-    # get all customer of month 0 who buy again in month 1, 2 and 3
-    # return the percentage of each relative to number of customer in month 0
-    for m in [first_month, second_month, third_month]:
-        month_cust = raw_df.loc[
-            (raw_df["transaction_date"].dt.month == m.month)
-            & (raw_df["transaction_date"].dt.year == m.year)
-            & (raw_df["customer_id"].isin(month_zero_cust)),
-            "customer_id",
-        ].unique()
-        result.append(len(month_cust) / len(month_zero_cust))
-
-    return cohort_df.iloc[0, [1, 2, 3]].to_list() == result
-
-
-def month_diff(a, b):
-    return 12 * (a.dt.year - b.dt.year) + (a.dt.month - b.dt.month)
-
-
-def make_cohort(df: pd.DataFrame, do_check_cohort=True) -> pd.DataFrame:
+def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
     """Do a cohort analysis.
 
     Args:
@@ -249,37 +237,33 @@ def make_cohort(df: pd.DataFrame, do_check_cohort=True) -> pd.DataFrame:
             # customer first purchase
             first_purchase=lambda df_: (
                 df_.groupby(["customer_id"])["transaction_date"].transform("min")
-                + pd.offsets.MonthEnd(0)
-                - pd.offsets.MonthBegin(1)
-            ).dt.date,
-            # distance betweeen first purchase and transaction date (in month)
+            ),
+            # distance betweeen first purchase and transaction date
             # bin this to a series of 30 days
-            days_after_first_transaction=lambda df_: pd.cut(
-                (
-                    pd.to_datetime(df_["transaction_date"])
-                    - pd.to_datetime(df_["first_purchase"])
-                ).dt.days,
-                bins=list(range(0, 390, 30)),
-                include_lowest=True,
+            days_after_first_transaction=lambda df_: get_days_after_first_transaction(
+                pd.to_datetime(df_["transaction_date"]),
+                pd.to_datetime(df_["first_purchase"]),
             ),
         )
-        .groupby(["first_purchase", "days_after_first_transaction"])
-        .agg(num_cust=("customer_id", "nunique"))
-        # get the initial number of customer/customer in month 0 for denominator
-        .assign(
-            num_cust_first_month=lambda df_: np.where(
-                df_.index.get_level_values("days_after_first_transaction").astype(str)
-                == "(-0.001, 30.0]",
-                df_["num_cust"],
-                np.nan,
-            )
+        .groupby(
+            [
+                # get first purchase in a monthly basis
+                pd.Grouper(key="first_purchase", freq="M"),
+                "days_after_first_transaction",
+            ],
+            observed=False,
         )
+        .agg(num_cust=("customer_id", "nunique"))
         .assign(
-            # ffill to get the denominator
-            num_cust_first_month=lambda df_: df_["num_cust_first_month"].ffill(),
+            # get the initial number of customer for denominator
+            num_cust_first_month=lambda df_: get_customer_first_month(
+                df_.index.get_level_values("days_after_first_transaction"),
+                df_["num_cust"],
+            ),
             # get the percentage of each month relative to month 0
-            percentage_to_num_cust_first_month=lambda df_: df_["num_cust"]
-            / df_["num_cust_first_month"],
+            percentage_to_num_cust_first_month=lambda df_: (
+                df_["num_cust"].div(df_["num_cust_first_month"])
+            ),
         )
         # pivot
         .reset_index()
@@ -292,14 +276,13 @@ def make_cohort(df: pd.DataFrame, do_check_cohort=True) -> pd.DataFrame:
         # however, this will fill the lower right diagonal with 0
         .fillna(0)
         # fill diagonal with na again
-        # ! error. for now use replace 0 with nan
-        # .pipe(fillna_diagonal_lower_right)
+        .pipe(fillna_diagonal_lower_right)
         .replace(0, np.nan)
         # rename axis
         .rename_axis("Months after Join", axis=1)
         .rename_axis("Join", axis=0)
     )
-    # format the index
+    # format the index to human readable format
     df_result.index = pd.to_datetime(df_result.index).strftime("%b %Y")
 
     # get average per months after transaction
@@ -307,13 +290,6 @@ def make_cohort(df: pd.DataFrame, do_check_cohort=True) -> pd.DataFrame:
         df_result.transpose().assign(Average=lambda df_: df_.mean(axis=1)).transpose()
     )
 
-    # check if cohort calculation is correct then return
-    if do_check_cohort:
-        if check_cohort(df, df_result):
-            return df_result
-        else:
-            raise Exception("check_cohort failed.")
-    # if no check, return directly
     return df_result
 
 
@@ -322,8 +298,8 @@ def plot_cohort(df_cohort, cmap="RdYlGn"):
 
     plt.figure(figsize=(12, 8), dpi=300)
     # set the min and max value as vmin and vmax
-    vmin = df_cohort.min().min()
-    vmax = df_cohort.iloc[:, 1:].max().max()
+    vmin = 0.25
+    vmax = 1.0
 
     sns.heatmap(
         df_cohort,
@@ -365,7 +341,7 @@ def plot_cohort(df_cohort, cmap="RdYlGn"):
     plt.ylabel("Start Date", fontweight="bold", fontsize=16, labelpad=10)
     plt.xlabel("Days after Start Date", fontweight="bold", fontsize=18, labelpad=10)
     xticklabels = [
-        "1-30",
+        "0-30",
         "31-60",
         "61-90",
         "91-120",
