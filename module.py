@@ -146,6 +146,29 @@ def create_max_hour_per_trainer(df):
     return np.select(condlist, choicelist, default=np.nan)
 
 
+def create_com_class(df, column):
+    conditions = [
+        df[column].str.lower().str.contains("cre-8|cre 8|cre8"),
+        df[column].str.lower().str.contains("syndicate"),
+        df[column].str.lower().str.contains("re-charge|re charge|recharge"),
+        df[column].str.lower().str.contains("leap"),
+    ]
+    choices = ["CRE-8", "Syndicate", "Re-Charge", "Leap"]
+    result = np.select(conditions, choices, default="NONE")
+    return result
+
+
+def create_com_class_type(df, column):
+    conditions = [
+        df[column].str.lower().str.contains("meetup|meet up|meet-up|met up|mee t up"),
+        df[column].str.lower().str.contains("workshop|work shop"),
+        df[column].str.lower().str.contains("showcase|show case|swowcase"),
+    ]
+    choices = ["Meet Up", "Workshop", "Showcase"]
+    result = np.select(conditions, choices, default="NONE")
+    return result
+
+
 def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
     """Change the value of bottom right diagonal with nan.
 
