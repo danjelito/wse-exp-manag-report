@@ -6,6 +6,7 @@ import seaborn as sns
 font = {"family": "Noto Sans", "weight": "normal", "size": 12}
 plt.rc("font", **font)
 
+# the attendance target per class type
 class_target = {
     "Chat Hour": 30,
     "Complementary": 8,
@@ -22,7 +23,6 @@ class_target = {
 
 # this is the class grouping that is used to group class in manag report
 # as per pak kish request on June 2023 exp meeting
-
 class_grouping = {
     "Online VPG": "VIP",
     "VPG": "VIP",
@@ -57,7 +57,20 @@ class_grouping = {
 }
 
 
-def create_class_type_noncoco(df, class_type_col, class_mode_col, class_service_col):
+def create_class_type_noncoco(
+    df: pd.DataFrame, 
+    class_type_col: str, 
+    class_mode_col: str, 
+    class_service_col: str
+) -> pd.Series:
+    """Create the grouped class type to match WSE ID defiition of class.
+
+    :param pd.DataFrame df: dataframe
+    :param str class_type_col: the original class type column
+    :param str class_mode_col: class mode column (whether offline or online)
+    :param str class_service_col: class service column
+    :return pd.Series: grouped class
+    """
     map_ = {
         "Chat Hour": "Social Club",
         "Complementary": "Complementary",
@@ -114,11 +127,19 @@ def create_class_type_noncoco(df, class_type_col, class_mode_col, class_service_
         "Online Other",
         "Other",
     ]
-    return np.select(condlist=condlist, choicelist=choicelist, default="Error")
+    return np.select(
+        condlist=condlist, 
+        choicelist=choicelist, 
+        default="Error"
+    )
 
 
-def clean_online_class_location(df):
-    """Assert than online class is delivered online."""
+def clean_online_class_location(df: pd.DataFrame) -> pd.Series:
+    """Assert that online class is online in location.
+
+    :param pd.DataFrame df: dataframe
+    :return pd.Series: class location
+    """
     filter_1 = df["class_type"].str.lower().str.contains("online")
     filter_2 = df["class_description"].str.lower().str.contains("online")
     filter_3 = df["class_mode"] == "Online"
@@ -127,13 +148,23 @@ def clean_online_class_location(df):
         df["class_location"].isna(),
         (filter_1 | filter_2 | filter_3 | filter_4),
     ]
-    choices = ["Blank", "Online"]
+    choices = [
+        "Blank", 
+        "Online"
+    ]
     return np.select(
-        condlist=conditions, choicelist=choices, default=df["class_location"]
+        condlist=conditions, 
+        choicelist=choices, 
+        default=df["class_location"]
     )
 
 
-def create_max_hour_per_trainer(df):
+def create_max_hour_per_trainer(df: pd.DataFrame) -> pd.Series:
+    """Generate max working hour per trainer per day.
+
+    :param pd.DataFrame df: dataframe
+    :return pd.Series: The max hour per trainer.
+    """    
     et_7_h = [
         "Gereau Jason Jarett",
     ]
@@ -142,94 +173,124 @@ def create_max_hour_per_trainer(df):
         df.index.get_level_values("teacher_position_y") == "Coach",
         df.index.get_level_values("teacher_position_y") == "ET",
     ]
-    choicelist = [7, 5, 6]
+    choicelist = [
+        7, 
+        5, 
+        6
+    ]
     return np.select(condlist, choicelist, default=np.nan)
 
 
-def create_com_class(df, column):
+def create_com_class(class_desc_col: pd.Series) -> pd.Series:
+    """Create the community class (the big grouping).
+
+    :param pd.Series class_desc_col: class description column.
+    :return pd.Series: the community class type.
+    """
     conditions = [
-        df[column].str.lower().str.contains("cre-8|cre 8|cre8"),
-        df[column].str.lower().str.contains("syndicate"),
-        df[column].str.lower().str.contains("re-charge|re charge|recharge"),
-        df[column].str.lower().str.contains("leap"),
+        class_desc_col.str.lower().str.contains("cre-8|cre 8|cre8"),
+        class_desc_col.str.lower().str.contains("syndicate"),
+        class_desc_col.str.lower().str.contains("re-charge|re charge|recharge"),
+        class_desc_col.str.lower().str.contains("leap"),
     ]
-    choices = ["CRE-8", "Syndicate", "Re-Charge", "Leap"]
+    choices = [
+        "CRE-8", 
+        "Syndicate", 
+        "Re-Charge", 
+        "Leap"
+    ]
     result = np.select(conditions, choices, default="NONE")
     return result
 
 
-def create_com_class_type(df, column):
+def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
+    """Create the community class (the small grouping).
+
+    :param pd.Series class_desc_col: class description column.
+    :return pd.Series: the community class type.
+    """
     conditions = [
-        df[column].str.lower().str.contains("meetup|meet up|meet-up|met up|mee t up"),
-        df[column].str.lower().str.contains("workshop|work shop"),
-        df[column].str.lower().str.contains("showcase|show case|swowcase"),
+        class_desc_col.str.lower().str.contains("meetup|meet up|meet-up|met up|mee t up"),
+        class_desc_col.str.lower().str.contains("workshop|work shop"),
+        class_desc_col.str.lower().str.contains("showcase|show case|swowcase"),
     ]
     choices = ["Meet Up", "Workshop", "Showcase"]
     result = np.select(conditions, choices, default="NONE")
     return result
 
 
-def get_days_after_first_transaction(trans_date_ser, first_pur_ser):
-    return pd.cut(
-        (pd.to_datetime(trans_date_ser) - pd.to_datetime(first_pur_ser)).dt.days,
-        bins=list(range(0, 390, 30)),
-        include_lowest=True,
-    )
-
-
-def ffill_1d_arr(arr):
-    arr_copy = arr.copy()
-    arr_shape = arr_copy.shape
-    last_seen = None
-    for i in range(arr_shape[0]):
-        current_val = arr_copy[i]
-        if not np.isnan(current_val):
-            last_seen = current_val
-        elif np.isnan(current_val):
-            arr_copy[i] = last_seen
-    return arr_copy
-
-
-def get_customer_first_month(flag_series, fill_series):
-    result = np.where(
-        flag_series.astype(str) == "(-0.001, 30.0]",
-        fill_series,
-        np.nan,
-    )
-
-    return ffill_1d_arr(result)
-
-
-def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
-    """Change the value of bottom right diagonal with nan.
-
-    Args:
-        df (pd.DataFrame): DF with shape a*a.
-
-    Returns:
-        pd.DataFrame: DF with bottom right diagonal nan.
-    """
-
-    df = df.astype(float)
-
-    # # set the diagonal elements to NaN
-    # np.fill_diagonal(np.fliplr(df.values), np.nan)
-    # get the lower right quadrant
-    rows, cols = np.tril_indices(len(df), k=-1)
-    reversed_cols = len(df) - 1 - cols
-    df.values[rows, reversed_cols] = np.nan
-    return df
-
-
 def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
-    """Do a cohort analysis.
+    """Do a cohort analysis on a DF.
 
-    Args:
-        df (pd.DataFrame): A DF with two columns; ["transaction_date", "customer_id"].
+    :param pd.DataFrame df: DF with two cols 
+        ["transaction_date", "customer_id"].
+    :return pd.DataFrame: A pivoted DF with cohort.
+    """    
 
-    Returns:
-        pd.DataFrame: A pivoted DF with cohort.
-    """
+    def get_days_after_first_transaction(
+        trans_date_ser: pd.Series, 
+        first_trans_date_ser: pd.Series
+    ):
+        """Get days between transaction and first transaction,
+        binned with a width of 30, from 0 to 360 days.
+
+        :param pd.Series trans_date_ser: transaction date
+        :param pd.Series first_trans_date_ser: first transaction date
+        :return pd.Series: day between, binned into a bin of width = 30
+        """
+        return pd.cut(
+            (pd.to_datetime(trans_date_ser) - pd.to_datetime(first_trans_date_ser)).dt.days,
+            bins=list(range(0, 390, 30)),
+            include_lowest=True,
+        )
+
+    def ffill_1d_arr(arr: np.array) -> np.array:
+        """Forward fill a 1D numpy array.
+
+        :param np.array arr: Array to process.
+        :return np.array: Resulting array.
+        """        
+        arr_copy = arr.copy()
+        arr_shape = arr_copy.shape
+        last_seen = None
+        for i in range(arr_shape[0]):
+            current_val = arr_copy[i]
+            if not np.isnan(current_val):
+                last_seen = current_val
+            elif np.isnan(current_val):
+                arr_copy[i] = last_seen
+        return arr_copy
+
+
+    def get_customer_first_month(
+            flag_series: pd.Series, 
+            fill_series: pd.Series
+        ) -> pd.Series:
+        """Get the number of first customer in a cohort.
+
+        :param pd.Series flag_series: Values that specify the month of customer.
+        :param pd.Series fill_series: Values used to fill.
+        :return pd.Series: The number of customer on the first month
+        for each cohort, filled with ffill.
+        """
+        result = np.where(
+            flag_series.astype(str) == "(-0.001, 30.0]",
+            fill_series,
+            np.nan,
+        )
+        return ffill_1d_arr(result)
+
+    def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
+        """Change the value of bottom right diagonal with nan.
+
+        :param pd.DataFrame df: DF with shape a*a.
+        :return pd.DataFrame: DF with bottom right diagonal nan.
+        """        
+        df = df.astype(float)
+        rows, cols = np.tril_indices(len(df), k=-1)
+        reversed_cols = len(df) - 1 - cols
+        df.values[rows, reversed_cols] = np.nan
+        return df
 
     df_result = (
         df.sort_values(["transaction_date", "customer_id"])
@@ -287,25 +348,27 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
 
     # get average per months after transaction
     df_result = (
-        df_result.transpose().assign(Average=lambda df_: df_.mean(axis=1)).transpose()
+        df_result
+        .transpose()
+        .assign(
+            Average=lambda df_: df_.mean(axis=1)
+        )
+        .transpose()
     )
 
     return df_result
 
 
-def plot_cohort(df_cohort, cmap="RdYlGn"):
+def plot_cohort(df_cohort:pd.DataFrame, cmap:str="RdYlGn"):
     """Plot cohort from make_cohort function into a heatmap."""
 
     plt.figure(figsize=(12, 8), dpi=300)
-    # set the min and max value as vmin and vmax
-    vmin = 0.25
-    vmax = 1.0
 
     sns.heatmap(
         df_cohort,
         cmap=cmap,
-        vmin=vmin,
-        vmax=vmax,
+        vmin=0.25,
+        vmax=1.0,
         cbar=False,
         linewidths=1,
         linecolor="white",
