@@ -439,3 +439,64 @@ def plot_cohort(df_cohort:pd.DataFrame, cmap:str="RdYlGn"):
         fontsize=10,
     )
     plt.show()
+
+
+def is_active(
+    df: pd.DataFrame,
+    start_date_col: pd.Timestamp,
+    end_date_col: pd.Timestamp,
+    lower_bound: str,
+):
+    """
+    Returns boolean to indicate if a member is active in a certain timeframe.
+    By default, the timeframe is one month,
+    starting from the lower_bound to the upper_bound
+    and inclusive
+
+    Arguments:
+        df -- dataframe
+        start_date -- contract start date of the member
+        end_date -- contract end date of the member
+        lower_bound -- lower bound of the timeframe
+
+    Returns:
+        boolean indicating if the member is active on the timeframe
+    """
+
+    lower_bound = pd.to_datetime(lower_bound)
+    upper_bound = lower_bound + pd.offsets.MonthEnd(0)
+
+    conditions = (
+        ((df[start_date_col] <= lower_bound) & (df[end_date_col] >= upper_bound)),
+        (
+            (df[start_date_col] <= lower_bound)
+            & (df[end_date_col] <= upper_bound)
+            & (df[end_date_col] >= lower_bound)
+        ),
+        (
+            (df[start_date_col] >= lower_bound)
+            & (df[start_date_col] <= upper_bound)
+            & (df[end_date_col] >= upper_bound)
+        ),
+        ((df[start_date_col] >= lower_bound) & (df[end_date_col] <= upper_bound)),
+        True,
+    )
+    choices = [True, True, True, True, False]
+    return np.select(conditions, choices, default=False)
+
+
+def save_multiple_dfs(list_df, list_sheet_name, filepath):
+    """save multiple dfs to one file with multiple sheets
+
+    Args:
+        list_df (list): list of dataframe objects
+        list_sheet_name (list): list of string for sheet name
+        filepath (string): path of file
+    """
+    import xlsxwriter
+    writer = pd.ExcelWriter(filepath, engine= 'xlsxwriter')
+
+    for df in list_df:
+        df.to_excel(writer, sheet_name= list_sheet_name.pop(0), index= True)
+
+    writer.close()
