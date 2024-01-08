@@ -63,7 +63,7 @@ def create_class_type_noncoco(
     class_mode_col: str, 
     class_service_col: str
 ) -> pd.Series:
-    """Create the grouped class type to match WSE ID defiition of class.
+    """Create the grouped class type to match WSE ID definition of class.
 
     :param pd.DataFrame df: dataframe
     :param str class_type_col: the original class type column
@@ -87,6 +87,7 @@ def create_class_type_noncoco(
         "Online Complementary": "Online Complementary",
         "Online English Corner": "Online Community",
         "Online FL": "Online First Lesson",
+        "Online First Lesson": "Online First Lesson",
         "Online IELTS": "Online IELTS",
         "Online IELTS FL": "Online IELTS First Lesson",
         "Online Proskill": "Online Proskill",
@@ -127,6 +128,18 @@ def create_class_type_noncoco(
         "Online Other",
         "Other",
     ]
+
+    # assert that all class are mapped
+    unmapped = []
+    for c in df[class_type_col].unique():
+        if c not in list(map_.keys()) + list(map_vip.keys()):
+            unmapped.append(c)
+        if len(unmapped) > 0:
+            print(unmapped)
+            raise Exception(
+                "Some class in noncoco class tracker are unmapped in create_class_type_noncoco"
+            )
+
     return np.select(
         condlist=condlist, 
         choicelist=choicelist, 
