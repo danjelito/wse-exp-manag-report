@@ -102,11 +102,13 @@ def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
         class_desc_col.str.lower().str.contains(
             "meetup|meet up|meet-up|met up|mee t up"
         ),
-        class_desc_col.str.lower().str.contains("workshop|work shop"),
+        class_desc_col.str.lower().str.contains("workshop|work shop|workhop"),
         class_desc_col.str.lower().str.contains("showcase|show case|swowcase"),
     ]
     choices = ["Meet Up", "Workshop", "Showcase"]
     result = np.select(conditions, choices, default="NONE")
+    if "NONE" in result:
+        raise Exception("Some community classes are not mapped.")
     return result
 
 
