@@ -14,8 +14,9 @@
 1. Process attendance and session data with Coco Class Session and Attendance program.
 2. Complete Non-coco class tracker for that month (Lintang's job).
 3. Complete the coco trainer data for that month (ask TO for trainer working days).
-4. Set the configuration on config.py.
-5. Run main.ipynb. This will output full exp management report file.
+4. IMPORTANT : Set the path to data in .dotenv file.
+5. Set the configuration on config.py.
+6. Run main.ipynb. This will output full exp management report file.
 
 ## Usage:
 

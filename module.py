@@ -57,127 +57,12 @@ class_grouping = {
 }
 
 
-def create_class_type_noncoco(
-    df: pd.DataFrame, 
-    class_type_col: str, 
-    class_mode_col: str, 
-    class_service_col: str
-) -> pd.Series:
-    """Create the grouped class type to match WSE ID definition of class.
-
-    :param pd.DataFrame df: dataframe
-    :param str class_type_col: the original class type column
-    :param str class_mode_col: class mode column (whether offline or online)
-    :param str class_service_col: class service column
-    :return pd.Series: grouped class
-    """
-    map_ = {
-        "Chat Hour": "Social Club",
-        "Complementary": "Complementary",
-        "Community": "Community",
-        "Encounter": "Encounter",
-        "FL": "First Lesson",
-        "First Lesson": "First Lesson",
-        "IELTS": "IELTS",
-        "IELTS FL": "IELTS First Lesson",
-        "Marketing Event": "Other",
-        "Member's Party": "Member's Party",
-        "Mock Test": "Mock Test",
-        "Online Advising Session": "Online Advising Session",
-        "Online Complementary": "Online Complementary",
-        "Online English Corner": "Online Community",
-        "Online FL": "Online First Lesson",
-        "Online First Lesson": "Online First Lesson",
-        "Online IELTS": "Online IELTS",
-        "Online IELTS FL": "Online IELTS First Lesson",
-        "Online Proskill": "Online Proskill",
-        "Online Proskill FL": "Online Proskill First Lesson",
-        "Online Social Club": "Online Community",
-        "Proskill": "Proskill",
-        "Proskill FL": "Proskill First Lesson",
-        "Social Club": "Social Club",
-        "Other": "Other",
-        "Training": "Other",
-        "Trial Class": "Other",
-    }
-    map_vip = {
-        "Advising Session": "One-on-one",
-        "Complementary": "One-on-one",
-        "FL": "First Lesson",
-        "One-on-one": "One-on-one",
-        "Online Welcome": "Online One-on-one",
-        "Online One-on-one": "Online One-on-one",
-        "Online Complementary": "Online VPG",
-        "Online Encounter": "Online One-on-one",
-        "VPG": "VPG",
-        "Other": "Other",
-        "Training": "Other",
-        "Trial Class": "Other",
-    }
-
-    condlist = [
-        df[class_service_col] == "VIP",
-        df[class_type_col].isin(list(map_.keys())),
-        df[class_mode_col] == "Online",
-        df[class_mode_col] == "Offline",
-    ]
-
-    choicelist = [
-        df[class_type_col].str.strip().map(map_vip),
-        df[class_type_col].str.strip().map(map_),
-        "Online Other",
-        "Other",
-    ]
-
-    # assert that all class are mapped
-    unmapped = []
-    for c in df[class_type_col].unique():
-        if c not in list(map_.keys()) + list(map_vip.keys()):
-            unmapped.append(c)
-        if len(unmapped) > 0:
-            print(unmapped)
-            raise Exception(
-                "Some class in noncoco class tracker are unmapped in create_class_type_noncoco"
-            )
-
-    return np.select(
-        condlist=condlist, 
-        choicelist=choicelist, 
-        default="Error"
-    )
-
-
-def clean_online_class_location(df: pd.DataFrame) -> pd.Series:
-    """Assert that online class is online in location.
-
-    :param pd.DataFrame df: dataframe
-    :return pd.Series: class location
-    """
-    filter_1 = df["class_type"].str.lower().str.contains("online")
-    filter_2 = df["class_description"].str.lower().str.contains("online")
-    filter_3 = df["class_mode"] == "Online"
-    filter_4 = df["class_service"] == "Go"
-    conditions = [
-        df["class_location"].isna(),
-        (filter_1 | filter_2 | filter_3 | filter_4),
-    ]
-    choices = [
-        "Blank", 
-        "Online"
-    ]
-    return np.select(
-        condlist=conditions, 
-        choicelist=choices, 
-        default=df["class_location"]
-    )
-
-
 def create_max_hour_per_trainer(df: pd.DataFrame) -> pd.Series:
     """Generate max working hour per trainer per day.
 
     :param pd.DataFrame df: dataframe
     :return pd.Series: The max hour per trainer.
-    """    
+    """
     et_7_h = [
         "Gereau Jason Jarett",
     ]
@@ -186,11 +71,7 @@ def create_max_hour_per_trainer(df: pd.DataFrame) -> pd.Series:
         df.index.get_level_values("teacher_position_y") == "Coach",
         df.index.get_level_values("teacher_position_y") == "ET",
     ]
-    choicelist = [
-        7, 
-        5, 
-        6
-    ]
+    choicelist = [7, 5, 6]
     return np.select(condlist, choicelist, default=np.nan)
 
 
@@ -206,12 +87,7 @@ def create_com_class(class_desc_col: pd.Series) -> pd.Series:
         class_desc_col.str.lower().str.contains("re-charge|re charge|recharge"),
         class_desc_col.str.lower().str.contains("leap"),
     ]
-    choices = [
-        "CRE-8", 
-        "Syndicate", 
-        "Re-Charge", 
-        "Leap"
-    ]
+    choices = ["CRE-8", "Syndicate", "Re-Charge", "Leap"]
     result = np.select(conditions, choices, default="NONE")
     return result
 
@@ -223,7 +99,9 @@ def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
     :return pd.Series: the community class type.
     """
     conditions = [
-        class_desc_col.str.lower().str.contains("meetup|meet up|meet-up|met up|mee t up"),
+        class_desc_col.str.lower().str.contains(
+            "meetup|meet up|meet-up|met up|mee t up"
+        ),
         class_desc_col.str.lower().str.contains("workshop|work shop"),
         class_desc_col.str.lower().str.contains("showcase|show case|swowcase"),
     ]
@@ -235,14 +113,13 @@ def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
 def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
     """Do a cohort analysis on a DF.
 
-    :param pd.DataFrame df: DF with two cols 
+    :param pd.DataFrame df: DF with two cols
         ["transaction_date", "customer_id"].
     :return pd.DataFrame: A pivoted DF with cohort.
-    """    
+    """
 
     def get_days_after_first_transaction(
-        trans_date_ser: pd.Series, 
-        first_trans_date_ser: pd.Series
+        trans_date_ser: pd.Series, first_trans_date_ser: pd.Series
     ):
         """Get days between transaction and first transaction,
         binned with a width of 30, from 0 to 360 days.
@@ -252,7 +129,9 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
         :return pd.Series: day between, binned into a bin of width = 30
         """
         return pd.cut(
-            (pd.to_datetime(trans_date_ser) - pd.to_datetime(first_trans_date_ser)).dt.days,
+            (
+                pd.to_datetime(trans_date_ser) - pd.to_datetime(first_trans_date_ser)
+            ).dt.days,
             bins=list(range(0, 390, 30)),
             include_lowest=True,
         )
@@ -262,7 +141,7 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
 
         :param np.array arr: Array to process.
         :return np.array: Resulting array.
-        """        
+        """
         arr_copy = arr.copy()
         arr_shape = arr_copy.shape
         last_seen = None
@@ -274,11 +153,9 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
                 arr_copy[i] = last_seen
         return arr_copy
 
-
     def get_customer_first_month(
-            flag_series: pd.Series, 
-            fill_series: pd.Series
-        ) -> pd.Series:
+        flag_series: pd.Series, fill_series: pd.Series
+    ) -> pd.Series:
         """Get the number of first customer in a cohort.
 
         :param pd.Series flag_series: Values that specify the month of customer.
@@ -298,7 +175,7 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
 
         :param pd.DataFrame df: DF with shape a*a.
         :return pd.DataFrame: DF with bottom right diagonal nan.
-        """        
+        """
         df = df.astype(float)
         rows, cols = np.tril_indices(len(df), k=-1)
         reversed_cols = len(df) - 1 - cols
@@ -361,18 +238,13 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
 
     # get average per months after transaction
     df_result = (
-        df_result
-        .transpose()
-        .assign(
-            Average=lambda df_: df_.mean(axis=1)
-        )
-        .transpose()
+        df_result.transpose().assign(Average=lambda df_: df_.mean(axis=1)).transpose()
     )
 
     return df_result
 
 
-def plot_cohort(df_cohort:pd.DataFrame, cmap:str="RdYlGn"):
+def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn"):
     """Plot cohort from make_cohort function into a heatmap."""
 
     plt.figure(figsize=(12, 8), dpi=300)
@@ -494,9 +366,10 @@ def save_multiple_dfs(list_df, list_sheet_name, filepath):
         filepath (string): path of file
     """
     import xlsxwriter
-    writer = pd.ExcelWriter(filepath, engine= 'xlsxwriter')
+
+    writer = pd.ExcelWriter(filepath, engine="xlsxwriter")
 
     for df in list_df:
-        df.to_excel(writer, sheet_name= list_sheet_name.pop(0), index= True)
+        df.to_excel(writer, sheet_name=list_sheet_name.pop(0), index=True)
 
     writer.close()
