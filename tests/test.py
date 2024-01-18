@@ -1,4 +1,5 @@
 import module
+import config
 
 
 def test_noncoco_online_class_is_online_location(df_noncoco_cleaned):
@@ -67,3 +68,21 @@ def test_no_trainer_is_duplicated(df_trainer):
     assert (
         len(et_duplicated) == 0
     ), "Some ETs are mapped more than once in coco_trainer_data.xlsx"
+
+
+def test_all_coco_student_centers_are_mapped_in_center_order(df_coco_member):
+    """
+    In specify center order in config.
+    If a center is not listed, it will turn to nan
+    """
+    unmapped = set(df_coco_member["student_center"].unique()) - set(config.center_order)
+    assert not unmapped , f"{unmapped} in coco members are unpammed in config.center_order"
+
+
+def test_all_erwin_student_centers_are_mapped_in_center_order(df_erwin_member):
+    """
+    In specify center order in config.
+    If a center is not listed, it will turn to nan
+    """
+    unmapped = set(df_erwin_member["center"].unique()) - set(config.center_order)
+    assert not unmapped, f"{unmapped} in erwin members are unpammed in config.center_order"

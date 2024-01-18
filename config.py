@@ -2,6 +2,7 @@ import re
 import os
 from dotenv import load_dotenv
 
+
 load_dotenv()  # load secret env variables
 path_attendance_data = os.getenv("path_attendance_data")
 path_session_data = os.getenv("path_session_data")
@@ -25,13 +26,16 @@ center_order = [
     "LW",
     "BSD",
     "TBS",
+    "CP",
     "KK",
     "CBB",
+    "SMB",
     "DG",
     "PKW",
     "Online Center",
     "Corporate",
     "HO",
+    "ID",
     "NST",
-    "Not Specified"
+    "Not Specified",
 ]
