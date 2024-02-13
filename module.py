@@ -88,7 +88,7 @@ def create_com_class(class_desc_col: pd.Series) -> pd.Series:
         class_desc_col.str.lower().str.contains("leap"),
     ]
     choices = ["CRE-8", "Syndicate", "Re-Charge", "Leap"]
-    result = np.select(conditions, choices, default="NONE")
+    result = np.select(conditions, choices, default="UNNAMED")
     return result
 
 
