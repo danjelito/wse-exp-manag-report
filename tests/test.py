@@ -88,6 +88,17 @@ def test_all_erwin_student_centers_are_mapped_in_center_order(df_erwin_member):
     assert not unmapped, f"{unmapped} in erwin members are unpammed in config.center_order"
 
 
+def test_all_classes_are_included(df_raw, df_report):
+    """
+    Number of classes in raw data should be ==
+    number of classes in report.
+    """
+    from_raw = df_raw.loc[df_raw["class_mode"] != "GOC"].shape[0]
+    from_report = df_report["Total Scheduled Session"].sum()
+    diff = from_raw - from_report
+    assert not diff, f"{diff} classes are not in the report"
+    
+
 def test_all_com_classes_are_included(df_raw, df_comm):
     """
     Number of community classes in raw data should be ==

@@ -7,6 +7,7 @@ font = {"family": "Noto Sans", "weight": "normal", "size": 12}
 plt.rc("font", **font)
 
 # the attendance target per class type
+# specified by diana
 class_target = {
     "Chat Hour": 30,
     "Complementary": 8,
@@ -15,6 +16,13 @@ class_target = {
     "Online Complementary": 8,
     "Online Encounter": 6,
     "Online Social Club": 40,
+    "Online First Lesson": 1,
+    "First Lesson": 1,
+    "Online Advising Session": 1,
+    "Advising Session": 1,
+    "Online Community": 40,
+    "Member's Party": 40,
+    "Community": 40,
     "One-on-one": 1,
     "VPG": 4,
     "Online One-on-one": 1,
