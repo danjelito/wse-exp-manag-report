@@ -120,6 +120,29 @@ def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
     return result
 
 
+def create_comm_class_for_att(df_att: pd.DataFrame) -> pd.Series:
+    """Create community class type for df_att.
+    If not a community class, returns na.
+    This is used to filter members who joined community classes.
+
+    :param pd.DataFrame df_att: DF attendance.
+    :return pd.Series: Community clas type, ["Community", "Online Community"]
+    """
+
+    community = (
+        df_att["class_description"]
+        .str.lower()
+        .str.contains("cre-8|cre 8|cre8|syndicate|re-charge|re charge|recharge|leap")
+    )
+    online = df_att["class_mode"] == "Online"
+    offline = df_att["class_mode"] == "Offline"
+    return np.select(
+        condlist=[(online & community), (offline & community)], 
+        choicelist=["Online Community", "Community"], 
+        default="NONE"
+    )
+
+
 def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
     """Do a cohort analysis on a DF.
 

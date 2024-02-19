@@ -1,6 +1,6 @@
 import module
 import config
-
+import pandas as pd
 
 def test_noncoco_online_class_is_online_location(df_noncoco_cleaned):
     """
@@ -76,7 +76,9 @@ def test_all_coco_student_centers_are_mapped_in_center_order(df_coco_member):
     If a center is not listed, it will turn to nan
     """
     unmapped = set(df_coco_member["student_center"].unique()) - set(config.center_order)
-    assert not unmapped , f"{unmapped} in coco members are unpammed in config.center_order"
+    assert (
+        not unmapped
+    ), f"{unmapped} in coco members are unpammed in config.center_order"
 
 
 def test_all_erwin_student_centers_are_mapped_in_center_order(df_erwin_member):
@@ -85,7 +87,9 @@ def test_all_erwin_student_centers_are_mapped_in_center_order(df_erwin_member):
     If a center is not listed, it will turn to nan
     """
     unmapped = set(df_erwin_member["center"].unique()) - set(config.center_order)
-    assert not unmapped, f"{unmapped} in erwin members are unpammed in config.center_order"
+    assert (
+        not unmapped
+    ), f"{unmapped} in erwin members are unpammed in config.center_order"
 
 
 def test_all_classes_are_included(df_raw, df_report):
@@ -97,7 +101,7 @@ def test_all_classes_are_included(df_raw, df_report):
     from_report = df_report["Total Scheduled Session"].sum()
     diff = from_raw - from_report
     assert not diff, f"{diff} classes are not in the report"
-    
+
 
 def test_all_com_classes_are_included(df_raw, df_comm):
     """
@@ -111,3 +115,18 @@ def test_all_com_classes_are_included(df_raw, df_comm):
     num_in_report = df_comm["Total Scheduled Session"].sum()
     diff = num_in_raw - num_in_report
     assert not diff, f"{diff} community classes are not in the report"
+
+
+def test_total_att_1_eq_total_att_2(report1: pd.DataFrame, report2: pd.DataFrame):
+    """Total attendance from report 1 should be eq
+    to total attendance from report 2.
+
+    :param pd.DataFrame report1: df_comm_report
+    :param pd.DataFrame report2: df_comm_report_2
+    """
+    total_att_1 = report1["Total Attendance"].sum()
+    total_att_2 = (
+        report2["Num Class Attended"] * report2["Num Members Who Join X Class"]
+    ).sum()
+    diff = total_att_1 - total_att_2
+    assert not diff, "Total attendance in report 1 differs with report 2 by {diff}"
