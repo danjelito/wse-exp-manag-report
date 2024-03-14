@@ -13,8 +13,8 @@ path_coco_member = os.getenv("path_coco_member")
 path_erwin_member = os.getenv("path_erwin_member")
 path_attendance_data_parent = os.getenv("path_attendance_data_parent")
 
-month = "2024-01"  # to find attendance data folder for current month
-month_number = 1  # to filter current month only in noncoco
+month = "2024-02"  # to find attendance data folder for current month
+month_number = 2  # to filter current month only in noncoco
 month_noncoco = month  # to find sheet name in noncoco
 
 center_order = [
@@ -36,6 +36,7 @@ center_order = [
     "HO",
     "ID",
     "NST",
+    "RST",
     "Street Talk",
     "Not Specified",
 ]
