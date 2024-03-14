@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
 
 font = {"family": "Noto Sans", "weight": "normal", "size": 12}
 plt.rc("font", **font)
@@ -63,6 +64,7 @@ class_grouping = {
     "Proskill First Lesson": "Other",
     "Mock Test": "Other",
 }
+
 
 
 def create_max_hour_per_trainer(df: pd.DataFrame) -> pd.Series:
@@ -140,6 +142,22 @@ def create_comm_class_for_att(df_att: pd.DataFrame) -> pd.Series:
         condlist=[(online & community), (offline & community)], 
         choicelist=["Online Community", "Community"], 
         default="NONE"
+    )
+
+
+def create_eom_date_ranges(start_month: str, end_month:str):
+    """Create date ranges with date = EOM.
+
+    :param str start_month: str with format %Y-%m
+    :param str end_month: str with format %Y-%m
+    :return _type_: List(timestamp)
+    """
+    
+    return pd.date_range(
+        start=start_month,
+        end=(pd.to_datetime(end_month, format="%Y-%m") + pd.offsets.MonthEnd(0)),
+        freq="m",
+        inclusive="both",
     )
 
 
@@ -277,10 +295,10 @@ def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
     return df_result
 
 
-def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn"):
+def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn", title=None):
     """Plot cohort from make_cohort function into a heatmap."""
 
-    plt.figure(figsize=(12, 8), dpi=300)
+    plt.figure(figsize=(12, 8), dpi=200)
 
     sns.heatmap(
         df_cohort,
@@ -310,8 +328,11 @@ def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn"):
                     color=color,
                     fontsize=10,
                 )
-
-    plt.title("Member Cohort", fontsize=32, fontweight="bold", pad=64, loc="left")
+    
+    if not title:
+        title = "Member Cohort"
+    plt.title(title, fontsize=32, fontweight="bold", pad=64, loc="left")
+    
     plt.text(
         x=0,
         y=-0.5,
@@ -390,19 +411,35 @@ def is_active(
     return np.select(conditions, choices, default=False)
 
 
-def save_multiple_dfs(list_df, list_sheet_name, filepath):
-    """save multiple dfs to one file with multiple sheets
-
-    Args:
-        list_df (list): list of dataframe objects
-        list_sheet_name (list): list of string for sheet name
-        filepath (string): path of file
+def create_folder_if_not_exist(folder_path: str):
     """
-    import xlsxwriter
+    Create the specified folder if it does not exist.
+
+    :param str folder_path: Path of the folder to be created.
+    """
+    folder_path = Path(folder_path)
+
+    if not folder_path.is_dir():
+        folder_path.mkdir(parents=True, exist_ok=True)
+
+
+def save_multiple_dfs(df_dict: dict, filepath: str):
+    """
+    Save multiple DataFrames to an Excel file.
+
+    :param dict df_dict: A dictionary where keys are sheet names and values are DataFrames.
+    :param str filepath: Path to the Excel file.
+    """
+    filepath = Path(filepath)
+    parent = filepath.parent
+    create_folder_if_not_exist(parent)
+
+    if filepath.exists():
+        raise FileExistsError("The file already exists.")
 
     writer = pd.ExcelWriter(filepath, engine="xlsxwriter")
 
-    for df in list_df:
-        df.to_excel(writer, sheet_name=list_sheet_name.pop(0), index=True)
+    for sheet_name, df in df_dict.items():
+        df.to_excel(writer, sheet_name=sheet_name, index=True)
 
     writer.close()
