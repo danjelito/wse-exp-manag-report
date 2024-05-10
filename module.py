@@ -30,40 +30,7 @@ class_target = {
     "Online VPG": 4,
 }
 
-# this is the class grouping that is used to group class in manag report
-# as per pak kish request on June 2023 exp meeting
-class_grouping = {
-    "Online VPG": "VIP",
-    "VPG": "VIP",
-    "Online One-on-one": "VIP",
-    "One-on-one": "VIP",
-    "Online Complementary": "Standard",
-    "Chat Hour": "Standard",
-    "Online Social Club": "Standard",
-    "Complementary": "Standard",
-    "Community": "Standard",
-    "Social Club": "Standard",
-    "Online Community": "Standard",
-    "Online Encounter": "Standard",
-    "Social Club Outside": "Standard",
-    "Online Welcome": "Standard",
-    "First Lesson": "Standard",
-    "Advising Session": "Standard",
-    "Online Advising Session": "Standard",
-    "Online First Lesson": "Standard",
-    "Member's Party": "Standard",
-    "Online Other": "Other",
-    "Other": "Other",
-    "Online Proskill": "Other",
-    "Online Proskill First Lesson": "Other",
-    "IELTS": "Other",
-    "Online IELTS First Lesson": "Other",
-    "Proskill": "Other",
-    "Online IELTS": "Other",
-    "IELTS First Lesson": "Other",
-    "Proskill First Lesson": "Other",
-    "Mock Test": "Other",
-}
+
 
 
 

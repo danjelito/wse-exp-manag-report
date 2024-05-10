@@ -129,7 +129,7 @@ def test_total_att_1_eq_total_att_2(report1: pd.DataFrame, report2: pd.DataFrame
         report2["Num Class Attended"] * report2["Num Members Who Join X Class"]
     ).sum()
     diff = total_att_1 - total_att_2
-    assert not diff, "Total attendance in report 1 differs with report 2 by {diff}"
+    assert not diff, f"Total attendance in report 1 differs with report 2 by {diff}"
 
 
 def test_class_type_grouped_mapped_in_class_grouping(class_type_gruped_col: pd.Series):
