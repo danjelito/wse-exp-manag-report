@@ -211,14 +211,6 @@ def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn", title=None):
 
     plt.figure(figsize=(12, 8), dpi=200)
 
-    cohort_arr = df_cohort.values
-    rows, cols = cohort_arr.shape
-
-    for i in range(rows):
-        for j in range(cols):
-            if j > cols - i - 1:
-                df_cohort.iloc[i, j] = np.nan
-
     ax=sns.heatmap(
         df_cohort,
         cmap=cmap,
@@ -232,7 +224,7 @@ def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn", title=None):
     for i in range(df_cohort.shape[0]):
         for j in range(df_cohort.shape[1]):
             if not np.isnan(v := df_cohort.iloc[i, j]):
-                if v >= 0.70:
+                if v >= 0.75:
                     color = "white"
                 elif v >= 0.35:
                     color = "black"
