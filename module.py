@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
+from matplotlib.ticker import StrMethodFormatter
+
 
 font = {"family": "Noto Sans", "weight": "normal", "size": 12}
 plt.rc("font", **font)
@@ -29,9 +31,6 @@ class_target = {
     "Online One-on-one": 1,
     "Online VPG": 4,
 }
-
-
-
 
 
 def create_max_hour_per_trainer(df: pd.DataFrame) -> pd.Series:
@@ -83,7 +82,7 @@ def create_com_class_type(class_desc_col: pd.Series) -> pd.Series:
         class_desc_col.str.lower().str.contains("showcase|show case|swowcase"),
     ]
     choices = ["Meet Up", "Workshop", "Showcase"]
-    result = np.select(conditions, choices, default="Other")
+    result = np.select(conditions, choices, default="UNNAMED")
     # if "NONE" in result:
     #     raise Exception("Some community classes are not mapped.")
     return result
@@ -106,232 +105,26 @@ def create_comm_class_for_att(df_att: pd.DataFrame) -> pd.Series:
     online = df_att["class_mode"] == "Online"
     offline = df_att["class_mode"] == "Offline"
     return np.select(
-        condlist=[(online & community), (offline & community)], 
-        choicelist=["Online Community", "Community"], 
-        default="NONE"
+        condlist=[(online & community), (offline & community)],
+        choicelist=["Online Community", "Community"],
+        default="NONE",
     )
 
 
-def create_eom_date_ranges(start_month: str, end_month:str):
+def create_eom_date_ranges(start_month: str, end_month: str):
     """Create date ranges with date = EOM.
 
     :param str start_month: str with format %Y-%m
     :param str end_month: str with format %Y-%m
     :return _type_: List(timestamp)
     """
-    
+
     return pd.date_range(
         start=start_month,
         end=(pd.to_datetime(end_month, format="%Y-%m") + pd.offsets.MonthEnd(0)),
         freq="m",
         inclusive="both",
     )
-
-
-def make_cohort(df: pd.DataFrame) -> pd.DataFrame:
-    """Do a cohort analysis on a DF.
-
-    :param pd.DataFrame df: DF with two cols
-        ["transaction_date", "customer_id"].
-    :return pd.DataFrame: A pivoted DF with cohort.
-    """
-
-    def get_days_after_first_transaction(
-        trans_date_ser: pd.Series, first_trans_date_ser: pd.Series
-    ):
-        """Get days between transaction and first transaction,
-        binned with a width of 30, from 0 to 360 days.
-
-        :param pd.Series trans_date_ser: transaction date
-        :param pd.Series first_trans_date_ser: first transaction date
-        :return pd.Series: day between, binned into a bin of width = 30
-        """
-        return pd.cut(
-            (
-                pd.to_datetime(trans_date_ser) - pd.to_datetime(first_trans_date_ser)
-            ).dt.days,
-            bins=list(range(0, 390, 30)),
-            include_lowest=True,
-        )
-
-    def ffill_1d_arr(arr: np.array) -> np.array:
-        """Forward fill a 1D numpy array.
-
-        :param np.array arr: Array to process.
-        :return np.array: Resulting array.
-        """
-        arr_copy = arr.copy()
-        arr_shape = arr_copy.shape
-        last_seen = None
-        for i in range(arr_shape[0]):
-            current_val = arr_copy[i]
-            if not np.isnan(current_val):
-                last_seen = current_val
-            elif np.isnan(current_val):
-                arr_copy[i] = last_seen
-        return arr_copy
-
-    def get_customer_first_month(
-        flag_series: pd.Series, fill_series: pd.Series
-    ) -> pd.Series:
-        """Get the number of first customer in a cohort.
-
-        :param pd.Series flag_series: Values that specify the month of customer.
-        :param pd.Series fill_series: Values used to fill.
-        :return pd.Series: The number of customer on the first month
-        for each cohort, filled with ffill.
-        """
-        result = np.where(
-            flag_series.astype(str) == "(-0.001, 30.0]",
-            fill_series,
-            np.nan,
-        )
-        return ffill_1d_arr(result)
-
-    def fillna_diagonal_lower_right(df: pd.DataFrame) -> pd.DataFrame:
-        """Change the value of bottom right diagonal with nan.
-
-        :param pd.DataFrame df: DF with shape a*a.
-        :return pd.DataFrame: DF with bottom right diagonal nan.
-        """
-        df = df.astype(float)
-        rows, cols = np.tril_indices(len(df), k=-1)
-        reversed_cols = len(df) - 1 - cols
-        df.values[rows, reversed_cols] = np.nan
-        return df
-
-    df_result = (
-        df.sort_values(["transaction_date", "customer_id"])
-        .assign(
-            # customer first purchase
-            first_purchase=lambda df_: (
-                df_.groupby(["customer_id"])["transaction_date"].transform("min")
-            ),
-            # distance betweeen first purchase and transaction date
-            # bin this to a series of 30 days
-            days_after_first_transaction=lambda df_: get_days_after_first_transaction(
-                pd.to_datetime(df_["transaction_date"]),
-                pd.to_datetime(df_["first_purchase"]),
-            ),
-        )
-        .groupby(
-            [
-                # get first purchase in a monthly basis
-                pd.Grouper(key="first_purchase", freq="M"),
-                "days_after_first_transaction",
-            ],
-            observed=False,
-        )
-        .agg(num_cust=("customer_id", "nunique"))
-        .assign(
-            # get the initial number of customer for denominator
-            num_cust_first_month=lambda df_: get_customer_first_month(
-                df_.index.get_level_values("days_after_first_transaction"),
-                df_["num_cust"],
-            ),
-            # get the percentage of each month relative to month 0
-            percentage_to_num_cust_first_month=lambda df_: (
-                df_["num_cust"].div(df_["num_cust_first_month"])
-            ),
-        )
-        # pivot
-        .reset_index()
-        .pivot(
-            index="first_purchase",
-            columns="days_after_first_transaction",
-            values="percentage_to_num_cust_first_month",
-        )
-        # fillna in case if there is month without buyer
-        # however, this will fill the lower right diagonal with 0
-        .fillna(0)
-        # fill diagonal with na again
-        .pipe(fillna_diagonal_lower_right)
-        .replace(0, np.nan)
-        # rename axis
-        .rename_axis("Months after Join", axis=1)
-        .rename_axis("Join", axis=0)
-    )
-    # format the index to human readable format
-    df_result.index = pd.to_datetime(df_result.index).strftime("%b %Y")
-
-    # get average per months after transaction
-    df_result = (
-        df_result.transpose().assign(Average=lambda df_: df_.mean(axis=1)).transpose()
-    )
-
-    return df_result
-
-
-def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn", title=None):
-    """Plot cohort from make_cohort function into a heatmap."""
-
-    plt.figure(figsize=(12, 8), dpi=200)
-
-    sns.heatmap(
-        df_cohort,
-        cmap=cmap,
-        vmin=0.25,
-        vmax=1.0,
-        cbar=False,
-        linewidths=1,
-        linecolor="white",
-    )
-    # manually annotate because for whatever reason the annotation from sns does not work
-    for i in range(df_cohort.shape[0]):
-        for j in range(df_cohort.shape[1]):
-            if not np.isnan(v := df_cohort.iloc[i, j]):
-                if v >= 0.70:
-                    color = "white"
-                elif v >= 0.35:
-                    color = "black"
-                else:
-                    color = "white"
-                plt.text(
-                    j + 0.5,
-                    i + 0.5,
-                    f"{v:.0%}",
-                    ha="center",
-                    va="center",
-                    color=color,
-                    fontsize=10,
-                )
-    
-    if not title:
-        title = "Member Cohort"
-    plt.title(title, fontsize=32, fontweight="bold", pad=64, loc="left")
-    
-    plt.text(
-        x=0,
-        y=-0.5,
-        horizontalalignment="left",
-        fontsize=16,
-        s="The percentage of members who are still active (attend at least one class)\nafter x days of their contract start dates.",
-    )
-    plt.ylabel("Start Date", fontweight="bold", fontsize=16, labelpad=10)
-    plt.xlabel("Days after Start Date", fontweight="bold", fontsize=18, labelpad=10)
-    xticklabels = [
-        "0-30",
-        "31-60",
-        "61-90",
-        "91-120",
-        "121-150",
-        "151-180",
-        "181-210",
-        "211-240",
-        "241-270",
-        "271-300",
-        "301-330",
-        "331-360",
-    ]
-    plt.xticks(
-        np.arange(len(xticklabels)) + 0.5,
-        xticklabels,
-        rotation=0,
-        ha="right",
-        horizontalalignment="center",
-        fontsize=10,
-    )
-    plt.show()
 
 
 def is_active(
@@ -394,6 +187,7 @@ def save_multiple_dfs(df_dict: dict, filepath: str):
     """
     Save multiple DataFrames to an Excel file.
 
+
     :param dict df_dict: A dictionary where keys are sheet names and values are DataFrames.
     :param str filepath: Path to the Excel file.
     """
@@ -410,3 +204,87 @@ def save_multiple_dfs(df_dict: dict, filepath: str):
         df.to_excel(writer, sheet_name=sheet_name, index=True)
 
     writer.close()
+
+
+def plot_cohort(df_cohort: pd.DataFrame, cmap: str = "RdYlGn", title=None):
+    """Plot cohort from make_cohort function into a heatmap."""
+
+    plt.figure(figsize=(12, 8), dpi=200)
+
+    cohort_arr = df_cohort.values
+    rows, cols = cohort_arr.shape
+
+    for i in range(rows):
+        for j in range(cols):
+            if j > cols - i - 1:
+                df_cohort.iloc[i, j] = np.nan
+
+    ax=sns.heatmap(
+        df_cohort,
+        cmap=cmap,
+        vmin=0.25,
+        vmax=1.0,
+        cbar=False,
+        linewidths=1,
+        linecolor="white",
+    )
+    # manually annotate because for whatever reason the annotation from sns does not work
+    for i in range(df_cohort.shape[0]):
+        for j in range(df_cohort.shape[1]):
+            if not np.isnan(v := df_cohort.iloc[i, j]):
+                if v >= 0.70:
+                    color = "white"
+                elif v >= 0.35:
+                    color = "black"
+                elif v >= 0.05:
+                    color = "white"
+                else:  # if v <5%, change to 0
+                    v = 0
+                    color = "white"
+                plt.text(
+                    j + 0.5,
+                    i + 0.5,
+                    f"{v:.0%}",
+                    ha="center",
+                    va="center",
+                    color=color,
+                    fontsize=10,
+                )
+
+    if not title:
+        title = "Member Cohort"
+    plt.title(title, fontsize=32, fontweight="bold", pad=64, loc="left")
+
+    plt.text(
+        x=0,
+        y=-0.5,
+        horizontalalignment="left",
+        fontsize=16,
+        s="The percentage of members who are still active (attend at least one class)\nafter x days of their contract start dates.",
+        color="grey"
+    )
+    plt.ylabel("Start Date", fontweight="bold", fontsize=16, labelpad=10)
+    plt.xlabel("Days after Start Date", fontweight="bold", fontsize=18, labelpad=10)
+    xticklabels = [
+        "0-30",
+        "31-60",
+        "61-90",
+        "91-120",
+        "121-150",
+        "151-180",
+        "181-210",
+        "211-240",
+        "241-270",
+        "271-300",
+        "301-330",
+        "331-360",
+    ]
+    plt.xticks(
+        np.arange(len(xticklabels)) + 0.5,
+        xticklabels,
+        rotation=0,
+        ha="right",
+        horizontalalignment="center",
+        fontsize=10,
+    )
+    plt.show()

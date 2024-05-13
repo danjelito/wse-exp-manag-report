@@ -26,7 +26,8 @@ def test_coco_and_noncoco_cols_same(df_coco, df_noncoco):
     Coco and noncoco data should have the same cols
     before being merged.
     """
-    assert not set(df_coco.columns) - set(df_noncoco.columns)
+    diff = set(df_coco.columns) - set(df_noncoco.columns)
+    assert not diff, f"Columns in noncoco and coco are different: {diff}"
 
 
 def test_class_exist_in_module_class_grouping(df, class_type_grouped_col):
