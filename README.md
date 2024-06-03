@@ -4,7 +4,7 @@
 
 1. Class attendance data: From Coco Class Session and Attendance program.
 2. Class session data: From Coco Class Session and Attendance program.
-3. Non-coco class tracker: A file that is used to record all classes that are not recorded in Coco. 
+3. Non-coco class tracker: A file that is used to record all classes that are not recorded in Coco.
 4. Coco trainer data: Consists of teacher data which includes center and working days. Located in Coco Class Session and Attendance program.
 5. Coco member: From Coco Member Processor program.
 5. Erwin member: From Erwin Member Processor program.
